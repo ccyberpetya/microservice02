@@ -1,0 +1,29 @@
+data_dir = "/var/lib/vector"
+
+[sources.docker_logs]
+type = "docker_logs"
+exclude_containers = ["vector"]
+
+[transforms.add_fields]
+type = "remap"
+inputs = ["docker_logs"]
+source = '''
+.environment = "local"
+.service = .container_name
+'''
+
+[sinks.elasticsearch]
+type = "elasticsearch"
+inputs = ["add_fields"]
+endpoints = ["http://elasticsearch:9200"]
+
+auth.strategy = "basic"
+auth.user = "admin"
+auth.password = "qwerty123456"
+
+bulk.index = "microservices-logs-%Y.%m.%d"
+
+buffer.type = "disk"
+buffer.max_size = 1073741824
+
+acknowledgements.enabled = true

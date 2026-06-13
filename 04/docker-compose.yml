@@ -1,0 +1,90 @@
+version: "3.9"
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ELASTIC_PASSWORD=qwerty123456
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=false
+      - xpack.security.transport.ssl.enabled=false
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -u elastic:qwerty123456 http://localhost:9200/_cluster/health | grep -qE 'green|yellow'"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+
+  elasticsearch-setup:
+    image: curlimages/curl:8.10.1
+    container_name: elasticsearch-setup
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    command: |
+      sh -c '
+        echo "Настройка пользователей Elasticsearch";
+
+        curl -s -u elastic:qwerty123456 \
+          -X POST http://elasticsearch:9200/_security/user/kibana_system/_password \
+          -H "Content-Type: application/json" \
+          -d "{\"password\":\"qwerty123456\"}";
+
+        curl -s -u elastic:qwerty123456 \
+          -X PUT http://elasticsearch:9200/_security/user/admin \
+          -H "Content-Type: application/json" \
+          -d "{\"password\":\"qwerty123456\",\"roles\":[\"superuser\"],\"full_name\":\"Admin\"}";
+
+        echo "Пользователь admin создан";
+      '
+    restart: "no"
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.3
+    container_name: kibana
+    depends_on:
+      elasticsearch-setup:
+        condition: service_completed_successfully
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=kibana_system
+      - ELASTICSEARCH_PASSWORD=qwerty123456
+      - SERVER_PUBLICBASEURL=http://localhost:8081
+    ports:
+      - "8081:5601"
+
+  vector:
+    image: timberio/vector:latest-alpine
+    container_name: vector
+    depends_on:
+      elasticsearch-setup:
+        condition: service_completed_successfully
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./vector/vector.toml:/etc/vector/vector.toml:ro
+      - vector_data:/var/lib/vector
+    command: ["--config", "/etc/vector/vector.toml"]
+    restart: unless-stopped
+
+  demo-service:
+    image: alpine:latest
+    container_name: demo-service
+    command: |
+      sh -c '
+        while true;
+        do
+          echo "{\"service\":\"demo-service\",\"level\":\"INFO\",\"message\":\"test log from stdout\"}";
+          sleep 5;
+        done
+      '
+    restart: unless-stopped
+
+volumes:
+  es_data:
+  vector_data:
