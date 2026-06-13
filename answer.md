@@ -100,3 +100,15 @@ Prometheus + Node Exporter + cAdvisor + Grafana + Alertmanager.
 
 
 Prometheus является стандартным решением для сбора метрик в микросервисной архитектуре. Он хорошо работает с pull-моделью, service discovery, exporters и собственными метриками приложений. Grafana предоставляет удобный интерфейс для построения dashboards, анализа и визуализации состояния системы. Node Exporter закрывает уровень хостов, cAdvisor — уровень контейнеров, а /metrics — уровень бизнес-логики конкретных сервисов.
+
+
+
+
+
+
+
+
+
+
+# 04
+https://github.com/ccyberpetya/microservice02/tree/main/04
